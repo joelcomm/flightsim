@@ -1,0 +1,256 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Nowhere in Particular</title>
+<style>
+  :root { --ink:#14192e; --sun:#ffd23b; --hud:#dff3ff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; overflow:hidden; background:#bfe6f7;
+    font-family:"Trebuchet MS", "Segoe UI", system-ui, sans-serif; }
+  #app { position:fixed; inset:0; }
+  canvas { display:block; }
+
+  #hud { position:fixed; inset:0; pointer-events:none; color:#fff; }
+  .panel { background:rgba(16,26,46,.58); border:3px solid rgba(255,255,255,.85);
+    border-radius:14px; box-shadow:0 4px 0 rgba(0,0,0,.25); backdrop-filter:blur(3px); }
+
+  /* left column: the numbers that matter */
+  #instruments { position:absolute; left:20px; top:18px; padding:12px 16px; min-width:168px; }
+  #instruments .row { display:flex; justify-content:space-between; align-items:baseline; gap:14px; }
+  #instruments .lbl { font-size:11px; font-weight:800; letter-spacing:2px; opacity:.62; }
+  #instruments .val { font-size:30px; font-weight:900; color:var(--hud); line-height:1.15;
+    -webkit-text-stroke:3px var(--ink); paint-order:stroke fill; }
+  #instruments .val small { font-size:12px; letter-spacing:1px; opacity:.8; -webkit-text-stroke:2px var(--ink); }
+  #instruments .warn { color:#ff6a4d; }
+
+  /* throttle bar */
+  #thr { position:absolute; left:20px; top:150px; width:168px; height:12px; border-radius:7px;
+    background:rgba(16,26,46,.6); border:3px solid rgba(255,255,255,.85); overflow:hidden; }
+  #thr i { display:block; height:100%; width:0%; background:var(--sun); transition:width .08s linear; }
+  #thrLbl { position:absolute; left:20px; top:168px; font-size:10px; font-weight:800;
+    letter-spacing:2px; opacity:.6; }
+
+  /* nearest place worth flying to — the world is 40 km across and the fog stops at 6 */
+  #nav { position:absolute; left:20px; top:196px; padding:9px 14px; min-width:168px; }
+  #nav .lbl { font-size:10px; font-weight:800; letter-spacing:2px; opacity:.62; }
+  #nav .name { font-size:17px; font-weight:900; color:var(--hud); line-height:1.25;
+    -webkit-text-stroke:3px var(--ink); paint-order:stroke fill; white-space:nowrap; }
+  #nav .sub { font-size:12px; font-weight:800; letter-spacing:1px; opacity:.8; }
+
+  /* the records screen (L) — everything the world has kept about you */
+  #book { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    display:none; max-height:82vh; overflow:auto; padding:18px 22px; min-width:min(560px,92vw); }
+  #book.show { display:block; }
+  #book h2 { font-size:15px; font-weight:900; letter-spacing:3px; color:var(--sun);
+    margin:0 0 10px; -webkit-text-stroke:3px var(--ink); paint-order:stroke fill; }
+  #book h3 { font-size:11px; font-weight:800; letter-spacing:3px; opacity:.6;
+    margin:14px 0 5px; }
+  #book .r { display:grid; grid-template-columns:1fr auto; gap:2px 14px;
+    font-size:12px; font-weight:700; }
+  #book .r u { text-decoration:none; text-align:right; opacity:.9; white-space:nowrap; }
+  #book .dim { opacity:.5; }
+  #book .hint { margin-top:14px; font-size:11px; letter-spacing:2px; opacity:.5; }
+
+  /* the landing scorecard — the one thing you do every flight, marked */
+  #score { position:absolute; left:50%; top:29%; transform:translateX(-50%) scale(.92);
+    opacity:0; pointer-events:none; transition:opacity .22s, transform .22s;
+    min-width:296px; padding:14px 18px; }
+  #score.show { opacity:1; transform:translateX(-50%) scale(1); }
+  #score .hd { display:flex; align-items:baseline; justify-content:space-between; gap:18px; }
+  #score .hd span { font-size:19px; font-weight:900; letter-spacing:2px; color:var(--sun);
+    -webkit-text-stroke:3px var(--ink); paint-order:stroke fill; }
+  #score .hd b { font-size:30px; font-weight:900; color:#fff; line-height:1;
+    -webkit-text-stroke:4px var(--ink); paint-order:stroke fill; }
+  #score .fld { font-size:11px; font-weight:800; letter-spacing:3px; opacity:.66; margin-top:3px; }
+  #score .rows { margin-top:10px; display:grid; grid-template-columns:auto 1fr auto;
+    gap:4px 12px; font-size:12px; font-weight:700; align-items:center; }
+  #score .rows i { font-style:normal; opacity:.62; letter-spacing:1px; }
+  #score .rows u { text-decoration:none; text-align:right; white-space:nowrap; }
+  #score .rows s { text-decoration:none; height:4px; border-radius:2px;
+    background:rgba(0,0,0,.34); display:block; min-width:54px; }
+  #score .rows s em { display:block; height:100%; border-radius:2px; background:var(--sun); }
+  #score .best { margin-top:9px; font-size:11px; font-weight:800; letter-spacing:2px; }
+
+  /* the discovery log: how much of the world you have actually been to */
+  #disc { position:absolute; left:20px; top:286px; padding:8px 14px; min-width:168px; }
+  #disc .lbl { font-size:10px; font-weight:800; letter-spacing:2px; opacity:.62; }
+  #disc .cnt { font-size:17px; font-weight:900; color:var(--hud); line-height:1.25;
+    -webkit-text-stroke:3px var(--ink); paint-order:stroke fill; }
+  #disc .bar { margin-top:5px; height:5px; border-radius:3px; background:rgba(0,0,0,.35); }
+  #disc .bar i { display:block; height:100%; border-radius:3px; background:var(--sun); width:0; }
+
+  /* attitude indicator — a porthole with a rolling, pitching horizon */
+  #adi { position:absolute; left:50%; bottom:24px; transform:translateX(-50%);
+    width:172px; height:172px; border-radius:50%; overflow:hidden;
+    border:5px solid rgba(255,255,255,.9); box-shadow:0 4px 0 rgba(0,0,0,.28); background:#3a7fc4; }
+  #adiInner { position:absolute; left:-50%; top:-50%; width:200%; height:200%;
+    transform-origin:50% 50%; }
+  #adiSky   { position:absolute; left:0; top:0; width:100%; height:50%; background:#5fb0e8; }
+  #adiGnd   { position:absolute; left:0; top:50%; width:100%; height:50%; background:#7a5a3a; }
+  #adiLine  { position:absolute; left:0; top:50%; width:100%; height:3px; margin-top:-1.5px;
+    background:rgba(255,255,255,.95); }
+  /* fixed aircraft reference, drawn over the moving horizon */
+  #adiRef { position:absolute; inset:0; }
+  #adiRef::before, #adiRef::after { content:''; position:absolute; top:50%; width:44px; height:4px;
+    margin-top:-2px; background:var(--sun); box-shadow:0 0 0 2px rgba(20,25,46,.75); }
+  #adiRef::before { left:16px; } #adiRef::after { right:16px; }
+  #adiDot { position:absolute; left:50%; top:50%; width:8px; height:8px; margin:-4px 0 0 -4px;
+    border-radius:50%; background:var(--sun); box-shadow:0 0 0 2px rgba(20,25,46,.75); }
+
+  /* compass strip above the ADI */
+  #hdg { position:absolute; left:50%; bottom:206px; transform:translateX(-50%);
+    padding:5px 18px; font-size:19px; font-weight:900; letter-spacing:2px; color:var(--hud);
+    -webkit-text-stroke:3px var(--ink); paint-order:stroke fill; }
+
+  /* place names, projected onto the map view */
+  #mapLabels { position:absolute; inset:0; display:none; }
+  .mapLbl { position:absolute; transform:translateX(-50%); white-space:nowrap;
+    font-size:12px; font-weight:900; letter-spacing:1px; color:#fff;
+    -webkit-text-stroke:3px var(--ink); paint-order:stroke fill; }
+
+  #controls { position:absolute; right:18px; top:16px; padding:10px 14px; font-size:12px;
+    line-height:1.7; text-align:right; opacity:.9; }
+  #controls b { color:var(--sun); }
+
+  #toast { position:absolute; left:50%; top:24%; transform:translateX(-50%) scale(.8); opacity:0;
+    font-size:34px; font-weight:900; color:var(--sun); -webkit-text-stroke:5px var(--ink);
+    paint-order:stroke fill; transition:opacity .25s, transform .25s; white-space:nowrap; }
+  #toast.show { opacity:1; transform:translateX(-50%) scale(1); }
+
+  #stamp { position:absolute; right:16px; bottom:12px; font-size:10px; font-weight:700;
+    letter-spacing:1px; opacity:.35; }
+
+  /* main menu — the world renders behind it, so it doubles as an establishing shot.
+     The START button is also what unlocks audio: a browser will not start an
+     AudioContext until a real click, and this is the one guaranteed click there is. */
+  #menu { position:fixed; inset:0; z-index:25; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:22px;
+    background:radial-gradient(ellipse at 50% 40%, rgba(10,18,36,.30), rgba(10,18,36,.72));
+    backdrop-filter:blur(2px); transition:opacity .45s; }
+  #menu.gone { opacity:0; pointer-events:none; }
+  #menu h1 { font-size:clamp(38px,7.4vw,88px); font-weight:900; letter-spacing:5px; color:#fff;
+    -webkit-text-stroke:8px var(--ink); paint-order:stroke fill; line-height:.94;
+    text-align:center; margin:0; }
+  #menu .tag { font-size:15px; font-weight:800; letter-spacing:4px; color:var(--sun);
+    -webkit-text-stroke:3px var(--ink); paint-order:stroke fill; }
+  #start { pointer-events:auto; cursor:pointer; border:0; font:inherit;
+    padding:16px 52px; border-radius:16px; background:var(--sun); color:var(--ink);
+    font-size:26px; font-weight:900; letter-spacing:3px;
+    box-shadow:0 6px 0 #b98f13, 0 10px 22px rgba(0,0,0,.35); transition:transform .1s, box-shadow .1s; }
+  #start:hover { transform:translateY(-2px); box-shadow:0 8px 0 #b98f13, 0 14px 26px rgba(0,0,0,.4); }
+  #start:active { transform:translateY(4px); box-shadow:0 2px 0 #b98f13; }
+  /* the field picker: choosing one flies the menu's establishing shot to that field,
+     so you are looking at the strip you are about to start on. */
+  #fieldPick { pointer-events:auto; display:flex; flex-wrap:wrap; justify-content:center;
+    gap:8px; max-width:min(760px,90vw); }
+  #fieldPick .fld { cursor:pointer; border:0; font:inherit; padding:8px 16px;
+    border-radius:11px; background:rgba(20,24,31,.55); color:#fff; font-size:12px;
+    font-weight:800; letter-spacing:2px; border:2px solid rgba(255,255,255,.28);
+    transition:background .12s, border-color .12s, transform .1s; }
+  #fieldPick .fld:hover { background:rgba(20,24,31,.78); transform:translateY(-1px); }
+  #fieldPick .fld.on { background:var(--sun); color:var(--ink); border-color:var(--ink); }
+  #fieldPick .lbl { width:100%; text-align:center; font-size:11px; letter-spacing:3px;
+    color:#fff; opacity:.75; margin-bottom:2px; }
+  #menuKeys { max-width:min(680px,86vw); padding:14px 22px; font-size:13px; line-height:1.9;
+    text-align:center; color:#fff; }
+  #menuKeys b { color:var(--sun); }
+  #menuTip { font-size:12px; letter-spacing:2px; opacity:.75; color:#fff; }
+
+  #loader { position:fixed; inset:0; z-index:30; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:16px; color:var(--ink);
+    background:linear-gradient(#8fd0f0, #d8effb); transition:opacity .6s; }
+  #loader h2 { font-size:clamp(22px,4.4vw,40px); font-weight:900; letter-spacing:3px; color:#fff;
+    text-align:center;
+    -webkit-text-stroke:6px var(--ink); paint-order:stroke fill; }
+  #loader small { font-weight:700; letter-spacing:2px; opacity:.7; }
+</style>
+
+<div id="app"></div>
+
+<div id="hud">
+  <div id="instruments" class="panel">
+    <div class="row"><span class="lbl">SPEED</span></div>
+    <div class="val"><span id="ias">0</span> <small>KTS</small></div>
+    <div class="row"><span class="lbl">ALTITUDE</span></div>
+    <div class="val"><span id="alt">0</span> <small>FT</small></div>
+  </div>
+  <div id="thr"><i></i></div>
+  <div id="thrLbl">THROTTLE</div>
+
+  <div id="nav" class="panel">
+    <div class="lbl">NEAREST</div>
+    <div class="name" id="navName">—</div>
+    <div class="sub" id="navSub">—</div>
+  </div>
+
+  <div id="disc" class="panel">
+    <div class="lbl">LANDMARKS</div>
+    <div class="cnt"><span id="discN">0</span> / <span id="discT">0</span></div>
+    <div class="bar"><i id="discBar"></i></div>
+  </div>
+
+  <div id="hdg" class="panel">HDG 000</div>
+  <div id="adi">
+    <div id="adiInner">
+      <div id="adiSky"></div><div id="adiGnd"></div><div id="adiLine"></div>
+    </div>
+    <div id="adiRef"></div><div id="adiDot"></div>
+  </div>
+
+  <div id="controls" class="panel">
+    <b>W</b> throttle up &nbsp; <b>S</b> slow / brake<br>
+    <b>A</b> <b>D</b> turn &nbsp; <b>Q</b> <b>E</b> roll<br>
+    <b>Space</b> nose up &nbsp; <b>Ctrl</b> nose down<br>
+    <b>R</b> eject, then <b>R</b> again for the chute<br>
+    <b>C</b> camera / cockpit &nbsp; <b>M</b> map &nbsp; <b>L</b> logbook &nbsp; <b>P</b> pause<br>
+    <b>Esc</b> menu &nbsp; <span style="opacity:.7">change airfield any time</span><br>
+    <b>N</b> sound &nbsp; <span style="opacity:.7">drag to look · wheel zooms the map</span>
+  </div>
+
+  <div id="mapLabels"></div>
+
+  <div id="book" class="panel"></div>
+
+  <div id="score" class="panel">
+    <div class="hd"><span id="scGrade"></span><b id="scNum"></b></div>
+    <div class="fld" id="scField"></div>
+    <div class="rows" id="scRows"></div>
+    <div class="best" id="scBest"></div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="stamp"></div>
+</div>
+
+<div id="menu">
+  <h1>NOWHERE IN<br>PARTICULAR</h1>
+  <div class="tag">A WHIMSICAL FLIGHT OF FANCY</div>
+  <button id="start">START FLYING</button>
+  <div id="fieldPick"></div>
+  <div id="menuKeys" class="panel">
+    <b>W</b> throttle &nbsp;·&nbsp; <b>S</b> slow / brake &nbsp;·&nbsp; <b>A</b> <b>D</b> turn &nbsp;·&nbsp; <b>Q</b> <b>E</b> roll<br>
+    <b>Space</b> nose up &nbsp;·&nbsp; <b>Ctrl</b> nose down &nbsp;·&nbsp; <b>R</b> eject, again for the chute<br>
+    <b>C</b> camera / cockpit &nbsp;·&nbsp; <b>M</b> map &nbsp;·&nbsp; <b>L</b> logbook &nbsp;·&nbsp; <b>N</b> sound &nbsp;·&nbsp; <b>P</b> pause<br>
+    <b>Esc</b> back to this menu, any time, to change airfield
+  </div>
+  <div id="menuTip">HOLD W · ROTATE AT 47 KTS · FIVE AIRFIELDS AND SEVEN TOWNS OUT THERE</div>
+</div>
+
+<div id="loader">
+  <h2>NOWHERE IN PARTICULAR</h2>
+  <small>RAISING THE LAND…</small>
+</div>
+
+<script>
+// A module-level throw otherwise leaves the loading screen up forever with nothing in
+// the console, so surface it on the loader itself.
+window.addEventListener('error', e => {
+  window.__err = (e.message||'') + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno + ':' + e.colno;
+  const l = document.getElementById('loader'); if (!l) return;
+  l.querySelector('h2').textContent = 'BUILD FAILED';
+  const s = l.querySelector('small');
+  s.textContent = window.__err;
+  s.style.cssText = 'color:#b1152a;font-size:13px;letter-spacing:0;max-width:80vw;text-align:center';
+});
+</script>
+
+<script type="module" src="/src/main.js"></script>

@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+
+# Local snapshots taken before big changes — a safety net for this machine,
+# not something the repo needs to carry.
+backups/
+
+# Machine-specific Claude Code permissions. .claude/launch.json IS committed:
+# it is how the dev server gets started and is the same for everyone.
+.claude/settings.local.json
