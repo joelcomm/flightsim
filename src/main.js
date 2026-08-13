@@ -4918,7 +4918,11 @@ console.log(`airspace: ${flyers.filter(f => f.kind !== 'balloon').length} aircra
 //  Nothing is created until the first key or click, because a browser will not let an
 //  AudioContext start before a gesture and a suspended one leaks warnings forever.
 // =================================================================
-let audioOn = true, AC = null, engGain, engFilt, osc1, osc2, windGain, master;
+// Start muted if the URL says so: ?mute=1 (or ?muted). Exists so the sim can be opened
+// for testing, demoed, or embedded in a page without announcing itself — N still toggles
+// it back on. Default is unmuted; a game that ships silent is a broken game.
+let audioOn = !/[?&]mute(d)?(=1|=true)?(&|$)/.test(location.search);
+let AC = null, engGain, engFilt, osc1, osc2, windGain, master;
 
 function initAudio() {
   // A context created outside a gesture starts suspended and stays that way, silently.
@@ -5237,7 +5241,7 @@ function toggleBook() {
     + `<h3>OTHER</h3><div class="r">`
       + `<span>LANDMARKS FOUND</span><u>${found.size} / ${LANDMARKS.length}</u>`
       + `<span>BEST DROP</span><u>${chRec.drop ? chRec.drop + ' pts' : '—'}</u>`
-      + `<span>TRACK LOGGED</span><u>${((trackXZ.length >> 1) * TRACK_STEP / 1000).toFixed(0)} km</u>`
+      + `<span>FLOWN THIS SESSION</span><u>${((trackXZ.length >> 1) * TRACK_STEP / 1000).toFixed(0)} km</u>`
     + `</div><div class="hint">L to close</div>`;
 }
 
@@ -5439,11 +5443,17 @@ function scoreDropIfNear() {
 //  time, so an hour spent in the circuit costs four points and a transit costs one every
 //  200 m. Quantised to whole metres because a track is a picture, not a survey.
 // =================================================================
+// The trail is per-flight, not per-pilot: it starts empty every load, so a refresh gives
+// you a clean map to draw on. The discovery log is the opposite and is kept — finding a
+// landmark is something you did once and should not have to do again. Different lifetimes,
+// so they deliberately do not share a key.
 const TRACK_KEY = 'flightsim.track.v1';
 const TRACK_STEP = 200, TRACK_MAX = 6000;
-let trackXZ = store.get(TRACK_KEY, []);
-if (trackXZ.length > TRACK_MAX * 2) trackXZ = trackXZ.slice(-TRACK_MAX * 2);
-let trackDirty = false, trackSaveT = 0, trackLine = null;
+const trackXZ = [];
+// Anyone who flew an earlier build has a saved trail sitting in storage. Clear it once
+// rather than leaving orphaned bytes behind for a key nothing reads any more.
+try { localStorage.removeItem(TRACK_KEY); } catch (e) {}
+let trackLine = null;
 const trackGroup = new THREE.Group(); trackGroup.visible = false; scene.add(trackGroup);
 const trackPos = new Float32Array(TRACK_MAX * 18);   // six verts a segment, three floats each
 
@@ -5452,7 +5462,6 @@ function trackPush(x, z) {
   if (n >= 2 && Math.hypot(x - trackXZ[n - 2], z - trackXZ[n - 1]) < TRACK_STEP) return;
   trackXZ.push(Math.round(x), Math.round(z));
   if (trackXZ.length > TRACK_MAX * 2) trackXZ.splice(0, 2);
-  trackDirty = true;
 }
 // Rebuilt only when the map is opened — nothing looks at it the rest of the time.
 //
@@ -5863,7 +5872,6 @@ function frame(now) {
     }
     updateBirds(dt, sx, mode === 'plane' ? plane.position.y : pilot.position.y, sz);
     trackPush(sx, sz);
-    if (trackDirty) { trackSaveT += dt; if (trackSaveT > 12) { trackSaveT = 0; trackDirty = false; store.set(TRACK_KEY, trackXZ); } }
     updateTraffic(dt, sx, sz);
     updateAirspace(dt);
     for (const sp of spinners) sp.o.rotation.z += sp.spd * dt;

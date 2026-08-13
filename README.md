@@ -31,7 +31,11 @@ go and look at the blank corners of the map.
 | **Fly under things** | The stone arch, ten aqueduct bays, and the length of the bridge. |
 | **Jump** | Bail out over a bullseye and score how close you land. |
 
-Press **L** for the logbook. Everything persists between sessions.
+Press **L** for the logbook. Landings, landmarks, course times and limbo runs all persist
+between sessions; the trail you draw on the map is per-flight and starts clean on every
+refresh.
+
+Add `?mute=1` to the URL to start silent.
 
 ## Controls
 
