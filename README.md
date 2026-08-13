@@ -35,7 +35,9 @@ Press **L** for the logbook. Landings, landmarks, course times and limbo runs al
 between sessions; the trail you draw on the map is per-flight and starts clean on every
 refresh.
 
-Add `?mute=1` to the URL to start silent.
+Sound is on by default, **N** toggles it, and the choice is remembered — mute it once and
+it stays muted on that browser. `?mute=1` on the URL does the same thing without a
+keypress.
 
 ## Controls
 

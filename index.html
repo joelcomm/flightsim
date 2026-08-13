@@ -154,6 +154,12 @@
     text-align:center; color:#fff; }
   #menuKeys b { color:var(--sun); }
   #menuTip { font-size:12px; letter-spacing:2px; opacity:.75; color:#fff; }
+  /* site credit. pointer-events is set explicitly because the menu's other children are
+     inert — only the start button and the field picker are meant to be clickable. */
+  #madeBy { pointer-events:auto; font-size:12px; letter-spacing:2px; font-weight:800;
+    color:#fff; opacity:.62; text-decoration:none; margin-top:-6px;
+    transition:opacity .15s, color .15s; }
+  #madeBy:hover { opacity:1; color:var(--sun); }
 
   #loader { position:fixed; inset:0; z-index:30; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:16px; color:var(--ink);
@@ -233,6 +239,8 @@
     <b>Esc</b> back to this menu, any time, to change airfield
   </div>
   <div id="menuTip">HOLD W · ROTATE AT 47 KTS · FIVE AIRFIELDS AND SEVEN TOWNS OUT THERE</div>
+  <a id="madeBy" href="https://artificialintelligence.studio" target="_blank"
+     rel="noopener noreferrer">Artificialintelligence.studio</a>
 </div>
 
 <div id="loader">

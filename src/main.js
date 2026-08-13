@@ -4192,7 +4192,10 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyM') toggleMap();
   if (e.code === 'KeyL') toggleBook();
-  if (e.code === 'KeyN') { audioOn = !audioOn; toast(audioOn ? 'SOUND ON' : 'SOUND OFF'); }
+  if (e.code === 'KeyN') {
+    audioOn = !audioOn; store.set(SOUND_KEY, audioOn);
+    toast(audioOn ? 'SOUND ON' : 'SOUND OFF — and it will stay off');
+  }
   if (e.code === 'KeyR') pressR();
   // Space scrolls the page and Ctrl+key is a browser shortcut on some platforms;
   // both are flight controls here.
@@ -4918,10 +4921,20 @@ console.log(`airspace: ${flyers.filter(f => f.kind !== 'balloon').length} aircra
 //  Nothing is created until the first key or click, because a browser will not let an
 //  AudioContext start before a gesture and a suspended one leaks warnings forever.
 // =================================================================
-// Start muted if the URL says so: ?mute=1 (or ?muted). Exists so the sim can be opened
-// for testing, demoed, or embedded in a page without announcing itself — N still toggles
-// it back on. Default is unmuted; a game that ships silent is a broken game.
-let audioOn = !/[?&]mute(d)?(=1|=true)?(&|$)/.test(location.search);
+// Muting sticks. Sound that comes back every time you reload is sound you have to keep
+// turning off, and a browser tab left open somewhere will happily drone away at you for
+// an hour. So N is remembered: it is a decision you make once, per browser.
+//
+// ?mute=1 (or ?muted) forces silence and records it, which is what makes it useful for
+// testing — one muted load and every later load on that browser is quiet too, whatever
+// URL it was opened from.
+//
+// The default for someone arriving fresh is still unmuted. A game that ships silent is a
+// broken game; this only ever remembers a choice the player actually made.
+const SOUND_KEY = 'flightsim.sound.v1';
+const forcedMute = /[?&]mute(d)?(=1|=true)?(&|$)/.test(location.search);
+let audioOn = forcedMute ? false : store.get(SOUND_KEY, true) !== false;
+if (forcedMute) store.set(SOUND_KEY, false);
 let AC = null, engGain, engFilt, osc1, osc2, windGain, master;
 
 function initAudio() {
